@@ -2,6 +2,7 @@ import uuid
 import random
 from faker import Faker
 import psycopg2
+import math
 
 fake = Faker()
 
@@ -10,6 +11,32 @@ user = 'postgres'
 passw = 'postgres'
 host = 'localhost'
 port = '5432'
+
+polish_cities = {
+    "Warsaw": {"latitude": 52.2297, "longitude": 21.0122},
+    "Krakow": {"latitude": 50.0647, "longitude": 19.9450},
+    "Lodz": {"latitude": 51.7592, "longitude": 19.4560},
+    "Wroclaw": {"latitude": 51.1079, "longitude": 17.0385},
+    "Poznan": {"latitude": 52.4064, "longitude": 16.9252},
+    "Gdansk": {"latitude": 54.3520, "longitude": 18.6466},
+    "Szczecin": {"latitude": 53.4285, "longitude": 14.5528},
+    "Bydgoszcz": {"latitude": 53.1235, "longitude": 18.0084},
+    "Lublin": {"latitude": 51.2465, "longitude": 22.5684},
+    "Katowice": {"latitude": 50.2709, "longitude": 19.0390},
+    "Bialystok": {"latitude": 53.1325, "longitude": 23.1688},
+    "Gdynia": {"latitude": 54.5189, "longitude": 18.5305}
+}
+
+def random_point_in_circle(latitude, longitude, radius_km):
+    radius_in_degrees = radius_km / 111.32
+
+    angle = random.uniform(0, 2 * math.pi)
+    distance = random.uniform(0, radius_in_degrees)
+    delta_lat = distance * math.cos(angle)
+    delta_lon = distance * math.sin(angle) / math.cos(math.radians(latitude))
+
+    return latitude + delta_lat, longitude + delta_lon
+
 
 def generate_event_categories(cur, num_records):
     print("Generating event categories...")
@@ -28,7 +55,11 @@ def generate_events(cur, num_records):
         address = fake.address()
         start_date = fake.date_time()
         end_date = fake.date_time()
-        location = f"POINT({fake.longitude()} {fake.latitude()})"
+
+        city_name, city_coords = random.choice(list(polish_cities.items()))
+        latitude, longitude = random_point_in_circle(city_coords['latitude'], city_coords['longitude'], 20)
+        location = f"POINT({longitude} {latitude})"
+
         cur.execute("INSERT INTO events (id, name, description, address, start_date, end_date, location) VALUES (%s, %s, %s, %s, %s, %s, ST_GeomFromText(%s, 4326))", (event_id, name, description, address, start_date, end_date, location))
     print(f"{num_records} events added.")
 
@@ -59,9 +90,9 @@ def generate_data():
 
     try:
         num_event_categories = 5
-        num_events = 10
-        num_users = 10
-        num_comments = 20
+        num_events = 1000
+        num_users = 500
+        num_comments = 5000
 
         generate_users(cur, num_users)
         cur.execute("SELECT id FROM users")
