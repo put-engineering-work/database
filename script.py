@@ -3,6 +3,8 @@ import random
 from faker import Faker
 import psycopg2
 import math
+from datetime import timedelta
+
 
 fake = Faker()
 
@@ -37,6 +39,14 @@ def random_point_in_circle(latitude, longitude, radius_km):
 
     return latitude + delta_lat, longitude + delta_lon
 
+def link_events_with_categories(cur, event_ids, category_ids):
+    print("Linking events with categories...")
+    for event_id in event_ids:
+        num_categories = random.randint(1, min(3, len(category_ids)))
+        chosen_categories = random.sample(category_ids, num_categories)
+        for category_id in chosen_categories:
+            cur.execute("INSERT INTO event_categories (events_id, categories_id) VALUES (%s, %s)", (event_id, category_id))
+    print("Events linked with categories.")
 
 def generate_event_categories(cur, num_records):
     print("Generating event categories...")
@@ -53,8 +63,10 @@ def generate_events(cur, num_records):
         name = fake.sentence()
         description = fake.text()
         address = fake.address()
-        start_date = fake.date_time()
-        end_date = fake.date_time()
+
+        start_date = fake.date_time_between(start_date='now', end_date='+2y')
+        end_days_after = random.randint(1, 14)
+        end_date = start_date + timedelta(days=end_days_after)
 
         city_name, city_coords = random.choice(list(polish_cities.items()))
         latitude, longitude = random_point_in_circle(city_coords['latitude'], city_coords['longitude'], 20)
@@ -63,17 +75,25 @@ def generate_events(cur, num_records):
         cur.execute("INSERT INTO events (id, name, description, address, start_date, end_date, location) VALUES (%s, %s, %s, %s, %s, %s, ST_GeomFromText(%s, 4326))", (event_id, name, description, address, start_date, end_date, location))
     print(f"{num_records} events added.")
 
-def generate_comments(cur, event_ids, user_ids, num_records):
+def generate_comments(cur, num_records):
     print("Generating comments...")
+    comment_ids = []
     for _ in range(num_records):
         comment_id = str(uuid.uuid4())
         content = fake.text()
         comment_date = fake.date_time()
         grade = random.randint(1, 5)
-        event_id = random.choice(event_ids)
-        user_id = random.choice(user_ids)
-        cur.execute("INSERT INTO comments (id, content, comment_date, grade, event_id, user_id) VALUES (%s, %s, %s, %s, %s, %s)", (comment_id, content, comment_date, grade, event_id, user_id))
+        cur.execute("INSERT INTO comments (id, content, comment_date, grade) VALUES (%s, %s, %s, %s)", (comment_id, content, comment_date, grade))
+        comment_ids.append(comment_id)
     print(f"{num_records} comments added.")
+    return comment_ids
+
+def link_events_with_comments(cur, event_ids, comment_ids):
+    print("Linking events with comments...")
+    for comment_id in comment_ids:
+        event_id = random.choice(event_ids)
+        cur.execute("INSERT INTO events_comments (event_id, comments_id) VALUES (%s, %s)", (event_id, comment_id))
+    print("Events linked with comments.")
 
 def generate_users(cur, num_records):
     print("Generating users...")
@@ -94,17 +114,22 @@ def generate_data():
         num_users = 500
         num_comments = 5000
 
-        generate_users(cur, num_users)
+        # generate_users(cur, num_users)
         cur.execute("SELECT id FROM users")
         user_ids = [row[0] for row in cur.fetchall()]
 
         generate_event_categories(cur, num_event_categories)
-        generate_events(cur, num_events)
+        cur.execute("SELECT id FROM event_categories")
+        category_ids = [row[0] for row in cur.fetchall()]
 
+        generate_events(cur, num_events)
         cur.execute("SELECT id FROM events")
         event_ids = [row[0] for row in cur.fetchall()]
 
-        generate_comments(cur, event_ids, user_ids, num_comments)
+        link_events_with_categories(cur, event_ids, category_ids)
+
+        comment_ids = generate_comments(cur, num_comments)
+        link_events_with_comments(cur, event_ids, comment_ids)
 
         conn.commit()
     except Exception as e:
