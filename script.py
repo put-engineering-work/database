@@ -75,18 +75,18 @@ def generate_events(cur, num_records):
         cur.execute("INSERT INTO events (id, name, description, address, start_date, end_date, location) VALUES (%s, %s, %s, %s, %s, %s, ST_GeomFromText(%s, 4326))", (event_id, name, description, address, start_date, end_date, location))
     print(f"{num_records} events added.")
 
-def generate_comments(cur, num_records):
+def generate_comments(cur, event_ids, user_ids, num_records):
     print("Generating comments...")
-    comment_ids = []
     for _ in range(num_records):
         comment_id = str(uuid.uuid4())
         content = fake.text()
         comment_date = fake.date_time()
         grade = random.randint(1, 5)
-        cur.execute("INSERT INTO comments (id, content, comment_date, grade) VALUES (%s, %s, %s, %s)", (comment_id, content, comment_date, grade))
-        comment_ids.append(comment_id)
+        event_id = random.choice(event_ids)
+        user_id = random.choice(user_ids)
+        cur.execute("INSERT INTO comments (id, content, comment_date, grade, event_id, user_id) VALUES (%s, %s, %s, %s, %s, %s)", (comment_id, content, comment_date, grade, event_id, user_id))
     print(f"{num_records} comments added.")
-    return comment_ids
+
 
 def link_events_with_comments(cur, event_ids, comment_ids):
     print("Linking events with comments...")
@@ -126,10 +126,13 @@ def generate_data():
         cur.execute("SELECT id FROM events")
         event_ids = [row[0] for row in cur.fetchall()]
 
-        link_events_with_categories(cur, event_ids, category_ids)
+        # link_events_with_categories(cur, event_ids, category_ids)
 
-        comment_ids = generate_comments(cur, num_comments)
-        link_events_with_comments(cur, event_ids, comment_ids)
+        # generate_comments(cur, event_ids,user_ids, num_comments)
+        
+        # coments_ids = [row[0] for row in cur.fetchall()]
+        
+        # link_events_with_comments(cur, event_ids, coments_ids)
 
         conn.commit()
     except Exception as e:
