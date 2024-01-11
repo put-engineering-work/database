@@ -95,6 +95,25 @@ def link_events_with_comments(cur, event_ids, comment_ids):
         cur.execute("INSERT INTO events_comments (event_id, comments_id) VALUES (%s, %s)", (event_id, comment_id))
     print("Events linked with comments.")
 
+
+def link_users_with_events(cur, event_ids, user_ids):
+    print("Linking users with events...")
+    statuses = ['STATUS_ACTIVE', 'STATUS_INACTIVE']  # Example statuses
+    types = ['ROLE_HOST', 'ROLE_GUEST']  # Example types
+
+    for event_id in event_ids:
+        # Randomly select a number of users for each event
+        num_users = random.randint(1, min(10, len(user_ids)))
+        chosen_users = random.sample(user_ids, num_users)
+
+        for user_id in chosen_users:
+            member_id = str(uuid.uuid4())
+            status = random.choice(statuses)
+            type = random.choice(types)
+            cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)", (member_id, status, type, event_id, user_id))
+    
+    print("Users linked with events.")
+
 def generate_users(cur, num_records):
     print("Generating users...")
     for _ in range(num_records):
@@ -109,12 +128,12 @@ def generate_data():
     cur = conn.cursor()
 
     try:
-        num_event_categories = 5
+        num_event_categories = 20
         num_events = 1000
         num_users = 500
         num_comments = 5000
 
-        # generate_users(cur, num_users)
+        generate_users(cur, num_users)
         cur.execute("SELECT id FROM users")
         user_ids = [row[0] for row in cur.fetchall()]
 
@@ -125,6 +144,9 @@ def generate_data():
         generate_events(cur, num_events)
         cur.execute("SELECT id FROM events")
         event_ids = [row[0] for row in cur.fetchall()]
+
+        if user_ids and event_ids:
+            link_users_with_events(cur, event_ids, user_ids)
 
         # link_events_with_categories(cur, event_ids, category_ids)
 
