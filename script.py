@@ -99,18 +99,22 @@ def link_events_with_comments(cur, event_ids, comment_ids):
 def link_users_with_events(cur, event_ids, user_ids):
     print("Linking users with events...")
     statuses = ['STATUS_ACTIVE', 'STATUS_INACTIVE']  # Example statuses
-    types = ['ROLE_HOST', 'ROLE_GUEST']  # Example types
+    types = ['ROLE_GUEST']  # Only ROLE_GUEST as an option for non-hosts
 
     for event_id in event_ids:
-        # Randomly select a number of users for each event
-        num_users = random.randint(1, min(10, len(user_ids)))
-        chosen_users = random.sample(user_ids, num_users)
+        # Select one user as the host for the event
+        host_user_id = random.choice(user_ids)
+        host_member_id = str(uuid.uuid4())
+        cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)", (host_member_id, 'STATUS_ACTIVE', 'ROLE_HOST', event_id, host_user_id))
 
-        for user_id in chosen_users:
-            member_id = str(uuid.uuid4())
+        # Randomly select other users as guests for the event
+        num_guests = random.randint(0, min(10, len(user_ids) - 1))  # Subtract 1 to exclude the host
+        guest_user_ids = random.sample([uid for uid in user_ids if uid != host_user_id], num_guests)
+
+        for user_id in guest_user_ids:
+            guest_member_id = str(uuid.uuid4())
             status = random.choice(statuses)
-            type = random.choice(types)
-            cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)", (member_id, status, type, event_id, user_id))
+            cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)", (guest_member_id, status, random.choice(types), event_id, user_id))
     
     print("Users linked with events.")
 
