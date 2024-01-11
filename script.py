@@ -77,23 +77,36 @@ def generate_events(cur, num_records):
 
 def generate_comments(cur, event_ids, user_ids, num_records):
     print("Generating comments...")
+    amount = 0
     for _ in range(num_records):
-        comment_id = str(uuid.uuid4())
-        content = fake.text()
-        comment_date = fake.date_time()
-        grade = random.randint(1, 5)
-        event_id = random.choice(event_ids)
-        user_id = random.choice(user_ids)
-        cur.execute("INSERT INTO comments (id, content, comment_date, grade, event_id, user_id) VALUES (%s, %s, %s, %s, %s, %s)", (comment_id, content, comment_date, grade, event_id, user_id))
-    print(f"{num_records} comments added.")
+        try:
+            comment_id = str(uuid.uuid4())
+            content = fake.text()
+            comment_date = fake.date_time()
+            grade = random.randint(1, 5)
+            event_id = random.choice(event_ids)
+            user_id = random.choice(user_ids)
+            cur.execute("INSERT INTO comments (id, content, comment_date, grade, event_id, user_id) VALUES (%s, %s, %s, %s, %s, %s)", (comment_id, content, comment_date, grade, event_id, user_id))
+            amount+=1
+        except Exception:
+            cur.connection.rollback()
+            continue
+    print(f"comments added. Amount: {amount} of {num_records}")
 
 
 def link_events_with_comments(cur, event_ids, comment_ids):
     print("Linking events with comments...")
+    amount = 0
     for comment_id in comment_ids:
         event_id = random.choice(event_ids)
-        cur.execute("INSERT INTO events_comments (event_id, comments_id) VALUES (%s, %s)", (event_id, comment_id))
-    print("Events linked with comments.")
+        try:
+            cur.execute("INSERT INTO events_comments (event_id, comments_id) VALUES (%s, %s)", (event_id, comment_id))
+            amount+=1
+        except Exception as err:
+            print(err)
+            cur.connection.rollback()
+            continue
+    print(f"Events linked with comments. Linked amount: {amount}")
 
 
 def link_users_with_events(cur, event_ids, user_ids):
@@ -135,30 +148,32 @@ def generate_data():
         num_event_categories = 20
         num_events = 1000
         num_users = 500
-        num_comments = 5000
+        num_comments = 50
 
-        generate_users(cur, num_users)
+        # generate_users(cur, num_users)
         cur.execute("SELECT id FROM users")
         user_ids = [row[0] for row in cur.fetchall()]
 
-        generate_event_categories(cur, num_event_categories)
+        # generate_event_categories(cur, num_event_categories)
         cur.execute("SELECT id FROM event_categories")
         category_ids = [row[0] for row in cur.fetchall()]
 
-        generate_events(cur, num_events)
+        # generate_events(cur, num_events)
         cur.execute("SELECT id FROM events")
         event_ids = [row[0] for row in cur.fetchall()]
 
-        if user_ids and event_ids:
-            link_users_with_events(cur, event_ids, user_ids)
+        # if user_ids and event_ids:
+            # link_users_with_events(cur, event_ids, user_ids)
 
         # link_events_with_categories(cur, event_ids, category_ids)
 
-        # generate_comments(cur, event_ids,user_ids, num_comments)
-        
-        # coments_ids = [row[0] for row in cur.fetchall()]
-        
-        # link_events_with_comments(cur, event_ids, coments_ids)
+        generate_comments(cur, event_ids,user_ids, num_comments)
+
+        cur.execute("SELECT id FROM comments")
+        coments_ids = [row[0] for row in cur.fetchall()]
+
+        if coments_ids and event_ids:
+            link_events_with_comments(cur, event_ids, coments_ids)
 
         conn.commit()
     except Exception as e:
