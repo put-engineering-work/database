@@ -48,7 +48,7 @@ def link_events_with_categories(cur, event_ids, category_ids):
         num_categories = random.randint(1, min(3, len(category_ids)))
         chosen_categories = random.sample(category_ids, num_categories)
         for category_id in chosen_categories:
-            cur.execute("INSERT INTO event_categories (events_id, categories_id) VALUES (%s, %s)", (event_id, category_id))
+            cur.execute("INSERT INTO events_categories (events_id, categories_id) VALUES (%s, %s)", (event_id, category_id))
     print("Events linked with categories.")
 
 def generate_event_categories(cur, num_records):
@@ -180,7 +180,7 @@ def generate_data():
         cur.execute("SELECT id FROM users")
         user_ids = [row[0] for row in cur.fetchall()]
 
-        # generate_event_categories(cur, num_event_categories)
+        generate_event_categories(cur, num_event_categories)
         conn.commit()
         cur.execute("SELECT id FROM event_categories")
         category_ids = [row[0] for row in cur.fetchall()]
@@ -192,8 +192,11 @@ def generate_data():
 
         if user_ids and event_ids:
             link_users_with_events(cur, event_ids, user_ids)
-
-        # link_events_with_categories(cur, event_ids, category_ids)
+            conn.commit()
+                        
+        # if event_ids and category_ids:
+        #     link_events_with_categories(cur, event_ids, category_ids)
+        #     conn.commit()
 
         generate_comments(cur, event_ids,user_ids, num_comments)
         conn.commit()
