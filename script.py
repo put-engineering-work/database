@@ -171,36 +171,39 @@ def generate_data():
 
     try:
         num_event_categories = 20
-        num_events = 1000
+        num_events = 100
         num_users = 10
         num_comments = 50
 
         generate_users(cur, num_users)
+        conn.commit()
         cur.execute("SELECT id FROM users")
         user_ids = [row[0] for row in cur.fetchall()]
 
-        # # generate_event_categories(cur, num_event_categories)
-        # cur.execute("SELECT id FROM event_categories")
-        # category_ids = [row[0] for row in cur.fetchall()]
-
-        # # generate_events(cur, num_events)
-        # cur.execute("SELECT id FROM events")
-        # event_ids = [row[0] for row in cur.fetchall()]
-
-        # # if user_ids and event_ids:
-        #     # link_users_with_events(cur, event_ids, user_ids)
-
-        # # link_events_with_categories(cur, event_ids, category_ids)
-
-        # generate_comments(cur, event_ids,user_ids, num_comments)
-
-        # cur.execute("SELECT id FROM comments")
-        # coments_ids = [row[0] for row in cur.fetchall()]
-
-        # if coments_ids and event_ids:
-        #     link_events_with_comments(cur, event_ids, coments_ids)
-
+        # generate_event_categories(cur, num_event_categories)
         conn.commit()
+        cur.execute("SELECT id FROM event_categories")
+        category_ids = [row[0] for row in cur.fetchall()]
+
+        generate_events(cur, num_events)
+        conn.commit()
+        cur.execute("SELECT id FROM events")
+        event_ids = [row[0] for row in cur.fetchall()]
+
+        if user_ids and event_ids:
+            link_users_with_events(cur, event_ids, user_ids)
+
+        # link_events_with_categories(cur, event_ids, category_ids)
+
+        generate_comments(cur, event_ids,user_ids, num_comments)
+        conn.commit()
+        cur.execute("SELECT id FROM comments")
+        coments_ids = [row[0] for row in cur.fetchall()]
+
+        if coments_ids and event_ids:
+            link_events_with_comments(cur, event_ids, coments_ids)
+        conn.commit()
+
     except Exception as e:
         print(f"Error: {e}")
         conn.rollback()
