@@ -4,6 +4,9 @@ from faker import Faker
 import psycopg2
 import math
 from datetime import timedelta
+import bcrypt
+import string
+import random
 
 
 fake = Faker()
@@ -131,13 +134,35 @@ def link_users_with_events(cur, event_ids, user_ids):
     
     print("Users linked with events.")
 
+
+def generate_random_password():
+    password = "123456789"
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(12))
+    return hashed_password.decode('utf-8')
+
 def generate_users(cur, num_records):
     print("Generating users...")
     for _ in range(num_records):
         user_id = str(uuid.uuid4())
+        user_details_id = str(uuid.uuid4())
+        app_user_roles = 1
+        is_activated = False
         email = fake.email()
-        password = fake.password()
-        cur.execute("INSERT INTO users (id, email, password) VALUES (%s, %s, %s)", (user_id, email, password))
+        password = generate_random_password()
+
+        cur.execute("INSERT INTO users (id, app_user_roles, is_activated, email, password) VALUES (%s, %s, %s, %s, %s)", 
+                    (user_id, app_user_roles, is_activated, email, password))
+        
+        name = fake.first_name()
+        last_name = fake.last_name()
+        address = fake.address()
+        birth_date = fake.date_of_birth()
+        phone_number = fake.phone_number()
+        cur.execute("INSERT INTO user_details (id, address, birth_date, last_name, name, phone_number, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", 
+                    (user_details_id, address, birth_date, last_name, name, phone_number, user_id))
+
+        cur.execute("UPDATE users SET user_details_id = %s WHERE id = %s", (user_details_id, user_id))
+
     print(f"{num_records} users added.")
 
 def generate_data():
@@ -147,33 +172,33 @@ def generate_data():
     try:
         num_event_categories = 20
         num_events = 1000
-        num_users = 500
+        num_users = 10
         num_comments = 50
 
-        # generate_users(cur, num_users)
+        generate_users(cur, num_users)
         cur.execute("SELECT id FROM users")
         user_ids = [row[0] for row in cur.fetchall()]
 
-        # generate_event_categories(cur, num_event_categories)
-        cur.execute("SELECT id FROM event_categories")
-        category_ids = [row[0] for row in cur.fetchall()]
+        # # generate_event_categories(cur, num_event_categories)
+        # cur.execute("SELECT id FROM event_categories")
+        # category_ids = [row[0] for row in cur.fetchall()]
 
-        # generate_events(cur, num_events)
-        cur.execute("SELECT id FROM events")
-        event_ids = [row[0] for row in cur.fetchall()]
+        # # generate_events(cur, num_events)
+        # cur.execute("SELECT id FROM events")
+        # event_ids = [row[0] for row in cur.fetchall()]
 
-        # if user_ids and event_ids:
-            # link_users_with_events(cur, event_ids, user_ids)
+        # # if user_ids and event_ids:
+        #     # link_users_with_events(cur, event_ids, user_ids)
 
-        # link_events_with_categories(cur, event_ids, category_ids)
+        # # link_events_with_categories(cur, event_ids, category_ids)
 
-        generate_comments(cur, event_ids,user_ids, num_comments)
+        # generate_comments(cur, event_ids,user_ids, num_comments)
 
-        cur.execute("SELECT id FROM comments")
-        coments_ids = [row[0] for row in cur.fetchall()]
+        # cur.execute("SELECT id FROM comments")
+        # coments_ids = [row[0] for row in cur.fetchall()]
 
-        if coments_ids and event_ids:
-            link_events_with_comments(cur, event_ids, coments_ids)
+        # if coments_ids and event_ids:
+        #     link_events_with_comments(cur, event_ids, coments_ids)
 
         conn.commit()
     except Exception as e:
