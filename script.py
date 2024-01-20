@@ -180,7 +180,7 @@ def generate_data():
         cur.execute("SELECT id FROM users")
         user_ids = [row[0] for row in cur.fetchall()]
 
-        generate_event_categories(cur, num_event_categories)
+        # generate_event_categories(cur, num_event_categories)
         conn.commit()
         cur.execute("SELECT id FROM event_categories")
         category_ids = [row[0] for row in cur.fetchall()]
