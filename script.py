@@ -171,8 +171,8 @@ def generate_data():
 
     try:
         num_event_categories = 20
-        num_events = 100
-        num_users = 10
+        num_events = 500
+        num_users = 50
         num_comments = 50
 
         generate_users(cur, num_users)
