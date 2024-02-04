@@ -238,8 +238,7 @@ def generate_users(conn, cur, num_records):
         if photo_path:
             insert_user_with_photo(cur, photo_path, user_details_id, address, birth_date, last_name, name, phone_number, user_id=user_id)
         else:
-            pass
-            #cur.execute("INSERT INTO user_details (id, address, birth_date, last_name, name, phone_number, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", (user_details_id, address, birth_date, last_name, name, phone_number, user_id))
+            cur.execute("INSERT INTO user_details (id, address, birth_date, last_name, name, phone_number, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", (user_details_id, address, birth_date, last_name, name, phone_number, user_id))
 
         cur.execute("UPDATE users SET user_details_id = %s WHERE id = %s", (user_details_id, user_id))
 
