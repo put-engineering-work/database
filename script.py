@@ -217,30 +217,33 @@ def generate_random_password():
 def generate_users(conn, cur, num_records):
     print("Generating users...")
     for _ in range(num_records):
-        user_id = str(uuid.uuid4())
-        user_details_id = str(uuid.uuid4())
-        app_user_roles = 1
-        is_activated = False
-        email = fake.email()
-        password = generate_random_password()
+        try:
+            user_id = str(uuid.uuid4())
+            user_details_id = str(uuid.uuid4())
+            app_user_roles = 1
+            is_activated = False
+            email = fake.email()
+            password = generate_random_password()
 
-        cur.execute("INSERT INTO users (id, app_user_roles, is_activated, email, password) VALUES (%s, %s, %s, %s, %s)", 
-                    (user_id, app_user_roles, is_activated, email, password))
-        
-        name = fake.first_name()
-        last_name = fake.last_name()
-        address = fake.address()
-        birth_date = fake.date_of_birth()
-        phone_number = fake.phone_number()
-        # photo_path = get_random_image_path("user_images/")
-        photo_path = None # TODO: Добавить фото для пользователей
+            cur.execute("INSERT INTO users (id, app_user_roles, is_activated, email, password) VALUES (%s, %s, %s, %s, %s)", 
+                        (user_id, app_user_roles, is_activated, email, password))
+            
+            name = fake.first_name()
+            last_name = fake.last_name()
+            address = fake.address()
+            birth_date = fake.date_of_birth()
+            phone_number = fake.phone_number()
+            # photo_path = get_random_image_path("user_images/")
+            photo_path = None # TODO: Добавить фото для пользователей
 
-        if photo_path:
-            insert_user_with_photo(cur, photo_path, user_details_id, address, birth_date, last_name, name, phone_number, user_id=user_id)
-        else:
-            cur.execute("INSERT INTO user_details (id, address, birth_date, last_name, name, phone_number, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", (user_details_id, address, birth_date, last_name, name, phone_number, user_id))
+            if photo_path:
+                insert_user_with_photo(cur, photo_path, user_details_id, address, birth_date, last_name, name, phone_number, user_id=user_id)
+            else:
+                cur.execute("INSERT INTO user_details (id, address, birth_date, last_name, name, phone_number, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", (user_details_id, address, birth_date, last_name, name, phone_number, user_id))
 
-        cur.execute("UPDATE users SET user_details_id = %s WHERE id = %s", (user_details_id, user_id))
+            cur.execute("UPDATE users SET user_details_id = %s WHERE id = %s", (user_details_id, user_id))
+        except Exception as e:
+            continue
 
     conn.commit()
     print(f"{num_records} users added.")
@@ -250,8 +253,8 @@ def generate_data():
     cur = conn.cursor()
 
     try:
-        num_events = 50
-        num_users = 30
+        num_events = 1000
+        num_users = 100
         # num_comments = 20
 
         generate_users(conn, cur, num_users)
