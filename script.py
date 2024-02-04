@@ -68,13 +68,6 @@ def link_events_with_categories(cur, event_ids, category_ids):
             cur.execute("INSERT INTO events_categories (events_id, categories_id) VALUES (%s, %s)", (event_id, category_id))
     print("Events linked with categories.")
 
-def generate_event_categories(cur, num_records):
-    print("Generating event categories...")
-    for _ in range(num_records):
-        category_id = str(uuid.uuid4())
-        name = fake.word()
-        cur.execute("INSERT INTO event_categories (id, name) VALUES (%s, %s)", (category_id, name))
-    print(f"{num_records} event categories added.")
 
 def insert_event_image(cur, event_id, image_oid):
     """Связывает изображение с событием в таблице event_images."""
@@ -96,6 +89,9 @@ def save_image_to_large_object_storage(conn, image_path):
 
 def generate_events(cur, conn, num_records):
     print("Generating events...")
+
+    cur.execute("SELECT id FROM event_categories")
+    category_ids = [row[0] for row in cur.fetchall()]
     for _ in range(num_records):
         event_id = str(uuid.uuid4())
         name = fake.sentence()
@@ -114,10 +110,15 @@ def generate_events(cur, conn, num_records):
 
         image_path = get_random_image_path("event_images/")
         if image_path:
-            # image_id = save_image(conn, image_path)  # Используем измененную функцию сохранения
             image_id = save_image_to_large_object_storage(conn, image_path)
             insert_event_image(cur, event_id, image_id) 
-          
+        
+        num_categories = random.randint(1, 3)
+        chosen_categories = random.sample(category_ids, num_categories)
+        for category_id in chosen_categories:
+            cur.execute("INSERT INTO events_categories (events_id, categories_id) VALUES (%s, %s)", (event_id, category_id))
+    
+    conn.commit()
     print(f"{num_records} events added.")
 
 def generate_comments(cur, event_ids, user_ids, num_records):
@@ -154,7 +155,7 @@ def link_events_with_comments(cur, event_ids, comment_ids):
     print(f"Events linked with comments. Linked amount: {amount}")
 
 
-def link_users_with_events(cur, event_ids, user_ids):
+def link_users_with_events(conn, cur, event_ids, user_ids):
     print("Linking users with events...")
     statuses = ['STATUS_ACTIVE', 'STATUS_INACTIVE']
     types = ['ROLE_GUEST']  # Only ROLE_GUEST as an option for non-hosts
@@ -174,6 +175,7 @@ def link_users_with_events(cur, event_ids, user_ids):
             status = random.choice(statuses)
             cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)", (guest_member_id, status, random.choice(types), event_id, user_id))
     
+    conn.commit()
     print("Users linked with events.")
 
 
@@ -182,7 +184,7 @@ def generate_random_password():
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(12))
     return hashed_password.decode('utf-8')
 
-def generate_users(cur, num_records):
+def generate_users(conn, cur, num_records):
     print("Generating users...")
     for _ in range(num_records):
         user_id = str(uuid.uuid4())
@@ -210,6 +212,7 @@ def generate_users(cur, num_records):
 
         cur.execute("UPDATE users SET user_details_id = %s WHERE id = %s", (user_details_id, user_id))
 
+    conn.commit()
     print(f"{num_records} users added.")
 
 def generate_data():
@@ -217,42 +220,32 @@ def generate_data():
     cur = conn.cursor()
 
     try:
-        num_event_categories = 20
-        num_events = 1000
-        num_users = 10
-        num_comments = 0
+        num_events = 50
+        num_users = 30
+        # num_comments = 20
 
-        # generate_users(cur, num_users)
-        # conn.commit()
+        generate_users(conn, cur, num_users)
+        
         cur.execute("SELECT id FROM users")
         user_ids = [row[0] for row in cur.fetchall()]
-
-        # generate_event_categories(cur, num_event_categories)
-        conn.commit()
-        cur.execute("SELECT id FROM event_categories")
-        category_ids = [row[0] for row in cur.fetchall()]
-
+ 
         generate_events(cur, conn, num_events)
-        conn.commit()
+        
+
         cur.execute("SELECT id FROM events")
         event_ids = [row[0] for row in cur.fetchall()]
 
         if user_ids and event_ids:
-            link_users_with_events(cur, event_ids, user_ids)
-            conn.commit()
-                        
-        # if event_ids and category_ids:
-        #     link_events_with_categories(cur, event_ids, category_ids)
-        #     conn.commit()
+            link_users_with_events(conn, cur, event_ids, user_ids)
+            
+        # generate_comments(cur, event_ids,user_ids, num_comments)
+        # conn.commit()
+        # cur.execute("SELECT id FROM comments")
+        # coments_ids = [row[0] for row in cur.fetchall()]
 
-        generate_comments(cur, event_ids,user_ids, num_comments)
-        conn.commit()
-        cur.execute("SELECT id FROM comments")
-        coments_ids = [row[0] for row in cur.fetchall()]
-
-        if coments_ids and event_ids:
-            link_events_with_comments(cur, event_ids, coments_ids)
-        conn.commit()
+        # if coments_ids and event_ids:
+        #     link_events_with_comments(cur, event_ids, coments_ids)
+        # conn.commit()
 
     except Exception as e:
         print(f"Error: {e}")
