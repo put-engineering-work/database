@@ -154,27 +154,57 @@ def link_events_with_comments(cur, event_ids, comment_ids):
             continue
     print(f"Events linked with comments. Linked amount: {amount}")
 
+#TODO: Переписать функцию link_users_with_events
+# def link_users_with_events(conn, cur, event_ids, user_ids):
+#     print("Linking users with events...")
+#     statuses = ['STATUS_ACTIVE', 'STATUS_INACTIVE']
+#     types = ['ROLE_GUEST']  # Only ROLE_GUEST as an option for non-hosts
+
+#     for event_id in event_ids:
+#         # Select one user as the host for the event
+#         host_user_id = random.choice(user_ids)
+#         host_member_id = str(uuid.uuid4())
+#         cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)", (host_member_id, 'STATUS_ACTIVE', 'ROLE_HOST', event_id, host_user_id))
+
+#         # Randomly select other users as guests for the event
+#         num_guests = random.randint(0, min(10, len(user_ids) - 1))  # Subtract 1 to exclude the host
+#         guest_user_ids = random.sample([uid for uid in user_ids if uid != host_user_id], num_guests)
+
+#         for user_id in guest_user_ids:
+#             guest_member_id = str(uuid.uuid4())
+#             status = random.choice(statuses)
+#             cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)", (guest_member_id, status, random.choice(types), event_id, user_id))
+    
+#     conn.commit()
+#     print("Users linked with events.")
 
 def link_users_with_events(conn, cur, event_ids, user_ids):
     print("Linking users with events...")
     statuses = ['STATUS_ACTIVE', 'STATUS_INACTIVE']
-    types = ['ROLE_GUEST']  # Only ROLE_GUEST as an option for non-hosts
+    types = ['ROLE_GUEST', 'ROLE_HOST']  # Добавляем 'ROLE_HOST'
 
     for event_id in event_ids:
-        # Select one user as the host for the event
-        host_user_id = random.choice(user_ids)
-        host_member_id = str(uuid.uuid4())
-        cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)", (host_member_id, 'STATUS_ACTIVE', 'ROLE_HOST', event_id, host_user_id))
+        # Проверяем, существует ли уже хост для события
+        cur.execute("SELECT COUNT(*) FROM members WHERE event_id = %s AND type = 'ROLE_HOST'", (event_id,))
+        host_exists = cur.fetchone()[0] > 0
 
-        # Randomly select other users as guests for the event
-        num_guests = random.randint(0, min(10, len(user_ids) - 1))  # Subtract 1 to exclude the host
-        guest_user_ids = random.sample([uid for uid in user_ids if uid != host_user_id], num_guests)
+        if not host_exists:
+            # Если хоста нет, выбираем одного пользователя в качестве хоста
+            host_user_id = random.choice(user_ids)
+            host_member_id = str(uuid.uuid4())
+            cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)",
+                        (host_member_id, 'STATUS_ACTIVE', 'ROLE_HOST', event_id, host_user_id))
+
+        # Назначаем гостей для события
+        num_guests = random.randint(0, min(10, len(user_ids) - 1))  # Вычитаем 1, чтобы исключить хоста
+        guest_user_ids = random.sample([uid for uid in user_ids if uid != host_user_id], num_guests) if not host_exists else random.sample(user_ids, num_guests)
 
         for user_id in guest_user_ids:
             guest_member_id = str(uuid.uuid4())
             status = random.choice(statuses)
-            cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)", (guest_member_id, status, random.choice(types), event_id, user_id))
-    
+            cur.execute("INSERT INTO members (id, status, type, event_id, user_id) VALUES (%s, %s, %s, %s, %s)",
+                        (guest_member_id, status, 'ROLE_GUEST', event_id, user_id))
+
     conn.commit()
     print("Users linked with events.")
 
