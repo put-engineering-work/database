@@ -1,3 +1,4 @@
+import os
 import uuid
 import random
 from faker import Faker
@@ -7,7 +8,7 @@ from datetime import timedelta
 import bcrypt
 import string
 import random
-
+from PIL import Image
 
 fake = Faker()
 
@@ -31,6 +32,22 @@ polish_cities = {
     "Bialystok": {"latitude": 53.1325, "longitude": 23.1688},
     "Gdynia": {"latitude": 54.5189, "longitude": 18.5305}
 }
+
+def get_random_image_path(image_folder):
+    """Выбирает случайное изображение из заданной папки."""
+    images = [img for img in os.listdir(image_folder) if img.endswith(".png") or img.endswith(".jpg") or img.endswith(".jpeg")]
+    if images:
+        return os.path.join(image_folder, random.choice(images))
+    else:
+        return None
+
+def insert_user_with_photo(cur, photo_path, user_details_id, address, birth_date, last_name, name, phone_number, user_id):
+    """Вставляет пользователя с фото в БД."""
+    with open(photo_path, 'rb') as photo_file:
+        photo = photo_file.read()
+    cur.execute("INSERT INTO user_details (id, address, birth_date, last_name, name, phone_number, photo, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", 
+                (user_details_id, address, birth_date, last_name, name, phone_number, psycopg2.Binary(photo), user_id))
+
 
 def random_point_in_circle(latitude, longitude, radius_km):
     radius_in_degrees = radius_km / 111.32
@@ -59,7 +76,25 @@ def generate_event_categories(cur, num_records):
         cur.execute("INSERT INTO event_categories (id, name) VALUES (%s, %s)", (category_id, name))
     print(f"{num_records} event categories added.")
 
-def generate_events(cur, num_records):
+def insert_event_image(cur, event_id, image_oid):
+    """Связывает изображение с событием в таблице event_images."""
+    cur.execute("INSERT INTO event_images (id, image, event_id) VALUES (%s, %s, %s)", 
+                (str(uuid.uuid4()), image_oid, event_id))
+
+
+def save_image_to_large_object_storage(conn, image_path):
+    """Сохраняет изображение как большой объект и возвращает его oid."""
+    with conn.cursor() as cur:
+        with open(image_path, 'rb') as image_file:
+            image_data = image_file.read()
+        oid = cur.execute("SELECT lo_create(0)")
+        lobj_id = cur.fetchone()[0]
+        large_object = conn.lobject(lobj_id, 'wb')
+        large_object.write(image_data)
+        large_object.close()
+        return lobj_id
+
+def generate_events(cur, conn, num_records):
     print("Generating events...")
     for _ in range(num_records):
         event_id = str(uuid.uuid4())
@@ -74,8 +109,15 @@ def generate_events(cur, num_records):
         city_name, city_coords = random.choice(list(polish_cities.items()))
         latitude, longitude = random_point_in_circle(city_coords['latitude'], city_coords['longitude'], 20)
         location = f"POINT({longitude} {latitude})"
-
+        
         cur.execute("INSERT INTO events (id, name, description, address, start_date, end_date, location) VALUES (%s, %s, %s, %s, %s, %s, ST_GeomFromText(%s, 4326))", (event_id, name, description, address, start_date, end_date, location))
+
+        image_path = get_random_image_path("event_images/")
+        if image_path:
+            # image_id = save_image(conn, image_path)  # Используем измененную функцию сохранения
+            image_id = save_image_to_large_object_storage(conn, image_path)
+            insert_event_image(cur, event_id, image_id) 
+          
     print(f"{num_records} events added.")
 
 def generate_comments(cur, event_ids, user_ids, num_records):
@@ -114,7 +156,7 @@ def link_events_with_comments(cur, event_ids, comment_ids):
 
 def link_users_with_events(cur, event_ids, user_ids):
     print("Linking users with events...")
-    statuses = ['STATUS_ACTIVE', 'STATUS_INACTIVE']  # Example statuses
+    statuses = ['STATUS_ACTIVE', 'STATUS_INACTIVE']
     types = ['ROLE_GUEST']  # Only ROLE_GUEST as an option for non-hosts
 
     for event_id in event_ids:
@@ -158,8 +200,13 @@ def generate_users(cur, num_records):
         address = fake.address()
         birth_date = fake.date_of_birth()
         phone_number = fake.phone_number()
-        cur.execute("INSERT INTO user_details (id, address, birth_date, last_name, name, phone_number, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", 
-                    (user_details_id, address, birth_date, last_name, name, phone_number, user_id))
+        photo_path = get_random_image_path("user_images/")
+
+        if photo_path:
+            insert_user_with_photo(cur, photo_path, user_details_id, address, birth_date, last_name, name, phone_number, user_id=user_id)
+        else:
+            pass
+            #cur.execute("INSERT INTO user_details (id, address, birth_date, last_name, name, phone_number, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s)", (user_details_id, address, birth_date, last_name, name, phone_number, user_id))
 
         cur.execute("UPDATE users SET user_details_id = %s WHERE id = %s", (user_details_id, user_id))
 
@@ -171,12 +218,12 @@ def generate_data():
 
     try:
         num_event_categories = 20
-        num_events = 500
-        num_users = 50
-        num_comments = 50
+        num_events = 1000
+        num_users = 10
+        num_comments = 0
 
-        generate_users(cur, num_users)
-        conn.commit()
+        # generate_users(cur, num_users)
+        # conn.commit()
         cur.execute("SELECT id FROM users")
         user_ids = [row[0] for row in cur.fetchall()]
 
@@ -185,7 +232,7 @@ def generate_data():
         cur.execute("SELECT id FROM event_categories")
         category_ids = [row[0] for row in cur.fetchall()]
 
-        generate_events(cur, num_events)
+        generate_events(cur, conn, num_events)
         conn.commit()
         cur.execute("SELECT id FROM events")
         event_ids = [row[0] for row in cur.fetchall()]
