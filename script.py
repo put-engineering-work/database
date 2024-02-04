@@ -232,7 +232,8 @@ def generate_users(conn, cur, num_records):
         address = fake.address()
         birth_date = fake.date_of_birth()
         phone_number = fake.phone_number()
-        photo_path = get_random_image_path("user_images/")
+        # photo_path = get_random_image_path("user_images/")
+        photo_path = None # TODO: Добавить фото для пользователей
 
         if photo_path:
             insert_user_with_photo(cur, photo_path, user_details_id, address, birth_date, last_name, name, phone_number, user_id=user_id)
